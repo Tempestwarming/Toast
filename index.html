@@ -3,27 +3,28 @@
 <head>
     <title>Don't Drop the Dough</title>
     <style>
-        body { text-align: center; background: #fdf5e6; font-family: 'Arial Black', sans-serif; overflow: hidden; }
-        canvas { background: #fff; border: 8px solid #4a3728; border-radius: 10px; margin-top: 10px; cursor: pointer; box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
-        .ui-text { color: #4a3728; }
+        body { text-align: center; background: #2e3b23; font-family: 'Arial Black', sans-serif; overflow: hidden; margin: 0; }
+        canvas { background: #000; border: 5px solid #4a3728; margin-top: 10px; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
-    <h1 class="ui-text">🍞 DON'T DROP THE DOUGH! 🍞</h1>
     <canvas id="gameCanvas" width="400" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Assets
+        // Asset Loading
         const imgToast = new Image(); imgToast.src = 'toast.png';
         const imgToaster = new Image(); imgToaster.src = 'toaster.png';
         const imgButter = new Image(); imgButter.src = 'butter.png';
+        const imgBg = new Image(); imgBg.src = 'background.png';
 
-        // Game State
+        // Game Constants
+        const TABLE_HEIGHT = 520; // Matches the wooden table in your image
+
         let gameState = 'START';
-        let toastY = 510;
+        let toastY = 460;
         let velocity = 0;
         let gravity = 0.25; 
         let rotation = 0;
@@ -36,16 +37,16 @@
         function handleInput() {
             if (gameState === 'START') {
                 gameState = 'PLAYING';
-                velocity = -12;
+                velocity = -12; // Eject!
             } else if (gameState === 'PLAYING') {
-                velocity = -6;
+                velocity = -6; // Normal jump
             } else if (gameState === 'GAMEOVER') {
                 resetGame();
             }
         }
 
         function resetGame() {
-            toastY = 510; velocity = 0; score = 0; butterSpeed = 4;
+            toastY = 460; velocity = 0; score = 0; butterSpeed = 4;
             butters = []; gameState = 'START'; frameCount = 0;
         }
 
@@ -54,67 +55,76 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Table/Floor
-            ctx.fillStyle = "#8b4513";
-            ctx.fillRect(0, 560, canvas.width, 40);
+            
+            // 1. Draw Background
+            ctx.drawImage(imgBg, 0, 0, canvas.width, canvas.height);
 
             if (gameState === 'START') {
-                ctx.drawImage(imgToaster, 140, 480, 120, 80);
-                ctx.drawImage(imgToast, 180, 470, 40, 40);
+                // Toaster sits on the table
+                ctx.drawImage(imgToaster, 130, 430, 140, 100);
+                // Toast peeks out of toaster
+                ctx.drawImage(imgToast, 175, 420, 50, 50);
                 
+                ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+                ctx.fillRect(40, 100, 320, 200);
                 ctx.fillStyle = "#4a3728";
+                ctx.font = "22px Arial Black";
+                ctx.fillText("DON'T DROP THE DOUGH!", 55, 150);
+                ctx.font = "16px Arial Black";
+                ctx.fillText("Click to eject from the toaster!", 65, 190);
+                ctx.fillText("Keep it off the wooden table!", 75, 220);
                 ctx.font = "20px Arial Black";
-                ctx.fillText("INSTRUCTIONS:", 110, 200);
-                ctx.font = "16px Arial";
-                ctx.fillText("Don't let the bread fall on the table!", 70, 230);
-                ctx.fillText("Tap to keep the toast in the air.", 85, 255);
-                ctx.font = "24px Arial Black";
-                ctx.fillText("TAP TO EJECT!", 110, 350);
+                ctx.fillText("TAP TO START", 125, 270);
             } 
             
             else if (gameState === 'PLAYING') {
                 frameCount++;
-                
-                // Difficulty: Speed up butter every 500 frames
-                if (frameCount % 500 === 0) butterSpeed += 1;
+                if (frameCount % 400 === 0) butterSpeed += 0.5;
 
                 velocity += gravity;
                 toastY += velocity;
-                rotation += velocity * 0.08;
+                rotation += velocity * 0.1;
 
-                // Points based on proximity to floor (Risk)
-                let multiplier = (toastY > 480) ? 10 : 1;
+                // Score Logic
+                let multiplier = (toastY > 450) ? 10 : 1;
                 score += (1 * multiplier);
 
-                // Butter Logic
-                if (frameCount % 70 === 0) {
-                    butters.push({ x: canvas.width, y: Math.random() * 400, w: 60, h: 40 });
+                // Butter Obstacles
+                if (frameCount % 75 === 0) {
+                    butters.push({ x: canvas.width, y: 50 + Math.random() * 350, w: 60, h: 50 });
                 }
 
                 butters.forEach((b, i) => {
                     b.x -= butterSpeed;
                     ctx.drawImage(imgButter, b.x, b.y, b.w, b.h);
-
-                    // Collision
-                    if (180 < b.x + b.w && 180 + 40 > b.x && toastY < b.y + b.h && toastY + 40 > b.y) {
+                    
+                    // Collision (Toast is at center X: 175, Width: 50)
+                    if (175 < b.x + b.w && 175 + 50 > b.x && toastY < b.y + b.h && toastY + 50 > b.y) {
                         gameState = 'GAMEOVER';
                     }
                 });
 
                 // Draw Spinning Toast
                 ctx.save();
-                ctx.translate(200, toastY + 20);
+                ctx.translate(200, toastY + 25);
                 ctx.rotate(rotation);
-                ctx.drawImage(imgToast, -20, -20, 40, 40);
+                ctx.drawImage(imgToast, -25, -25, 50, 50);
                 ctx.restore();
 
-                if (toastY > 520 || toastY < -50) gameState = 'GAMEOVER';
+                // Check Floor/Ceiling (TABLE_HEIGHT)
+                if (toastY > TABLE_HEIGHT - 40 || toastY < -100) gameState = 'GAMEOVER';
 
-                ctx.fillStyle = "#4a3728";
-                ctx.font = "20px Arial Black";
-                ctx.fillText(`Score: ${Math.floor(score/10)}`, 15, 40);
-                if(multiplier > 1) ctx.fillText("🔥 RISK BONUS! 🔥", 15, 70);
+                // UI
+                ctx.fillStyle = "white";
+                ctx.strokeStyle = "#4a3728";
+                ctx.lineWidth = 4;
+                ctx.font = "26px Arial Black";
+                ctx.strokeText(`Score: ${Math.floor(score/10)}`, 20, 50);
+                ctx.fillText(`Score: ${Math.floor(score/10)}`, 20, 50);
+                if(multiplier > 1) {
+                    ctx.fillStyle = "#ffcc00";
+                    ctx.fillText("BONUS! 🔥", 20, 90);
+                }
             } 
             
             else if (gameState === 'GAMEOVER') {
@@ -123,29 +133,23 @@
                     localStorage.setItem('highScore', highScore);
                 }
 
-                // Screenshot-friendly end screen
-                ctx.fillStyle = "#fff";
-                ctx.fillRect(40, 150, 320, 300);
-                ctx.strokeStyle = "#4a3728";
-                ctx.lineWidth = 5;
-                ctx.strokeRect(40, 150, 320, 300);
-
+                ctx.fillStyle = "rgba(0,0,0,0.7)";
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+                ctx.fillStyle = "white";
+                ctx.fillRect(50, 180, 300, 260);
                 ctx.fillStyle = "#4a3728";
                 ctx.font = "28px Arial Black";
-                ctx.fillText("BREAD DOWN!", 90, 220);
-                
-                ctx.font = "20px Arial Black";
-                ctx.fillText(`SCORE: ${Math.floor(score/10)}`, 140, 280);
-                ctx.fillText(`BEST: ${highScore}`, 145, 310);
-                
+                ctx.fillText("BREAD DOWN!", 95, 235);
+                ctx.font = "22px Arial Black";
+                ctx.fillText(`SCORE: ${Math.floor(score/10)}`, 140, 290);
+                ctx.fillText(`BEST: ${highScore}`, 145, 330);
                 ctx.font = "14px Arial";
-                ctx.fillText("Screenshot to share your score!", 100, 360);
-                ctx.fillText("Click to Play Again", 135, 410);
+                ctx.fillText("Screenshot your high score!", 115, 380);
+                ctx.fillText("Click to try again", 140, 410);
             }
 
             requestAnimationFrame(draw);
         }
-
         draw();
     </script>
 </body>
