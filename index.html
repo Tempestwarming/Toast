@@ -14,6 +14,10 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // --- DEBUG SETTINGS ---
+        const SHOW_HITBOXES = false; // Set to true to see the red collision boxes!
+        const HITBOX_PADDING = 12;   // Higher = easier/smaller collision zone
+
         // Asset Loading
         const imgToast = new Image(); imgToast.src = 'toast.png';
         const imgToaster = new Image(); imgToaster.src = 'toaster.png';
@@ -21,7 +25,7 @@
         const imgBg = new Image(); imgBg.src = 'background.png';
 
         // Game Constants
-        const TABLE_HEIGHT = 520; // Matches the wooden table in your image
+        const TABLE_HEIGHT = 520; 
 
         let gameState = 'START';
         let toastY = 460;
@@ -37,9 +41,9 @@
         function handleInput() {
             if (gameState === 'START') {
                 gameState = 'PLAYING';
-                velocity = -12; // Eject!
+                velocity = -12;
             } else if (gameState === 'PLAYING') {
-                velocity = -6; // Normal jump
+                velocity = -6;
             } else if (gameState === 'GAMEOVER') {
                 resetGame();
             }
@@ -55,14 +59,10 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 1. Draw Background
             ctx.drawImage(imgBg, 0, 0, canvas.width, canvas.height);
 
             if (gameState === 'START') {
-                // Toaster sits on the table
                 ctx.drawImage(imgToaster, 130, 430, 140, 100);
-                // Toast peeks out of toaster
                 ctx.drawImage(imgToast, 175, 420, 50, 50);
                 
                 ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
@@ -71,8 +71,8 @@
                 ctx.font = "22px Arial Black";
                 ctx.fillText("DON'T DROP THE DOUGH!", 55, 150);
                 ctx.font = "16px Arial Black";
-                ctx.fillText("Click to eject from the toaster!", 65, 190);
-                ctx.fillText("Keep it off the wooden table!", 75, 220);
+                ctx.fillText("Click to eject!", 135, 190);
+                ctx.fillText("Avoid the butter & table!", 85, 220);
                 ctx.font = "20px Arial Black";
                 ctx.fillText("TAP TO START", 125, 270);
             } 
@@ -85,21 +85,46 @@
                 toastY += velocity;
                 rotation += velocity * 0.1;
 
-                // Score Logic
                 let multiplier = (toastY > 450) ? 10 : 1;
                 score += (1 * multiplier);
 
-                // Butter Obstacles
+                // Butter Spawning
                 if (frameCount % 75 === 0) {
                     butters.push({ x: canvas.width, y: 50 + Math.random() * 350, w: 60, h: 50 });
                 }
+
+                // Toast Hitbox Definition
+                const tHB = {
+                    x: 175 + HITBOX_PADDING,
+                    y: toastY + HITBOX_PADDING,
+                    w: 50 - (HITBOX_PADDING * 2),
+                    h: 50 - (HITBOX_PADDING * 2)
+                };
 
                 butters.forEach((b, i) => {
                     b.x -= butterSpeed;
                     ctx.drawImage(imgButter, b.x, b.y, b.w, b.h);
                     
-                    // Collision (Toast is at center X: 175, Width: 50)
-                    if (175 < b.x + b.w && 175 + 50 > b.x && toastY < b.y + b.h && toastY + 50 > b.y) {
+                    // Butter Hitbox Definition
+                    const bHB = {
+                        x: b.x + HITBOX_PADDING,
+                        y: b.y + HITBOX_PADDING,
+                        w: b.w - (HITBOX_PADDING * 2),
+                        h: b.h - (HITBOX_PADDING * 2)
+                    };
+
+                    // Debug: Draw Hitboxes
+                    if (SHOW_HITBOXES) {
+                        ctx.strokeStyle = "red";
+                        ctx.strokeRect(tHB.x, tHB.y, tHB.w, tHB.h);
+                        ctx.strokeRect(bHB.x, bHB.y, bHB.w, bHB.h);
+                    }
+
+                    // Narrowed Collision Check
+                    if (tHB.x < bHB.x + bHB.w &&
+                        tHB.x + tHB.w > bHB.x &&
+                        tHB.y < bHB.y + bHB.h &&
+                        tHB.y + tHB.h > bHB.y) {
                         gameState = 'GAMEOVER';
                     }
                 });
@@ -111,20 +136,15 @@
                 ctx.drawImage(imgToast, -25, -25, 50, 50);
                 ctx.restore();
 
-                // Check Floor/Ceiling (TABLE_HEIGHT)
                 if (toastY > TABLE_HEIGHT - 40 || toastY < -100) gameState = 'GAMEOVER';
 
-                // UI
+                // Score UI
                 ctx.fillStyle = "white";
                 ctx.strokeStyle = "#4a3728";
                 ctx.lineWidth = 4;
                 ctx.font = "26px Arial Black";
                 ctx.strokeText(`Score: ${Math.floor(score/10)}`, 20, 50);
                 ctx.fillText(`Score: ${Math.floor(score/10)}`, 20, 50);
-                if(multiplier > 1) {
-                    ctx.fillStyle = "#ffcc00";
-                    ctx.fillText("BONUS! 🔥", 20, 90);
-                }
             } 
             
             else if (gameState === 'GAMEOVER') {
@@ -144,7 +164,7 @@
                 ctx.fillText(`SCORE: ${Math.floor(score/10)}`, 140, 290);
                 ctx.fillText(`BEST: ${highScore}`, 145, 330);
                 ctx.font = "14px Arial";
-                ctx.fillText("Screenshot your high score!", 115, 380);
+                ctx.fillText("Screenshot your score!", 120, 380);
                 ctx.fillText("Click to try again", 140, 410);
             }
 
