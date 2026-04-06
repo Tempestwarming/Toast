@@ -1,32 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
     <title>Don't Drop the Dough</title>
     <style>
-        /* 2. RESPONSIVE CSS: Makes the canvas fill the screen width */
-        body { 
-            text-align: center; 
-            background: #2e3b23; 
-            font-family: 'Arial Black', sans-serif; 
-            overflow: hidden; 
-            margin: 0; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh; /* Centers the game vertically on mobile */
+        /* Prevent all browser-default gestures and scrolling */
+        * {
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
-        canvas { 
-            background: #000; 
-            border: 4px solid #4a3728; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-            /* This is the magic for mobile sizing */
-            max-width: 95vw; 
-            max-height: 90vh;
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000; /* Black bars instead of green */
+            /* Gradient background to give it depth */
+            background: radial-gradient(circle, #2e3b23 0%, #000000 80%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background: #000;
+            /* Ensures the game fills as much screen as possible while staying centered */
+            max-width: 100vw;
+            max-height: 100vh;
             width: auto;
             height: auto;
-            touch-action: none; /* Prevents the phone from scrolling while you play */
+            aspect-ratio: 400 / 600;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border: 2px solid #4a3728;
+            display: block;
         }
     </style>
 </head>
@@ -60,8 +70,11 @@
         let butterSpeed = 4;
         let frameCount = 0;
 
+        // Prevent pinch-to-zoom on iOS
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+
         function handleInput(e) {
-            if(e) e.preventDefault(); // Stop mobile "zoom" on double tap
+            if (e && e.cancelable) e.preventDefault(); 
 
             if (!audioStarted) {
                 bgMusic.play().catch(e => console.log("Audio waiting..."));
@@ -83,8 +96,8 @@
             butters = []; gameState = 'START'; frameCount = 0;
         }
 
-        // Support for Spacebar, Mouse Click, and Touch Taps
-        window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
+        // Listeners for all devices
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(e); });
         canvas.addEventListener('mousedown', (e) => handleInput(e));
         canvas.addEventListener('touchstart', (e) => handleInput(e), {passive: false});
 
@@ -97,13 +110,12 @@
                 ctx.drawImage(imgToast, 175, 420, 50, 50);
                 
                 ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-                ctx.fillRect(40, 100, 320, 200);
+                ctx.fillRect(40, 100, 320, 220);
                 ctx.fillStyle = "#4a3728";
-                ctx.font = "20px Arial Black";
-                ctx.fillText("DON'T DROP THE DOUGH!", 55, 150);
+                ctx.font = "22px Arial Black";
+                ctx.fillText("DON'T DROP THE DOUGH!", 50, 150);
                 ctx.font = "16px Arial Black";
-                ctx.fillText("Tap to eject!", 135, 190);
-                ctx.fillText("Avoid the butter & table!", 85, 220);
+                ctx.fillText("Avoid the butter & table!", 85, 200);
                 ctx.font = "20px Arial Black";
                 ctx.fillText("TAP TO START", 115, 270);
             } 
@@ -123,7 +135,7 @@
                     butters.push({ x: canvas.width, y: 50 + Math.random() * 350, w: 60, h: 50 });
                 }
 
-                // PRECISION HITBOXES
+                // Precision Hitboxes
                 const tHB = { x: 175 + 15, y: toastY + 15, w: 20, h: 20 };
 
                 butters.forEach((b, i) => {
