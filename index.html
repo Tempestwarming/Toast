@@ -14,20 +14,16 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // --- 1. SMALLER HITBOX ---
-        // Increased from 12 to 18 for even more forgiving collisions
-        const HITBOX_PADDING = 18; 
-
         // --- ASSETS ---
         const imgToast = new Image(); imgToast.src = 'toast.png';
         const imgToaster = new Image(); imgToaster.src = 'toaster.png';
         const imgButter = new Image(); imgButter.src = 'butter.png';
         const imgBg = new Image(); imgBg.src = 'background.png';
 
-        // --- 2. AUDIO FIX ---
+        // --- AUDIO SETTINGS ---
         const bgMusic = new Audio('toastmusic.mp3');
         bgMusic.loop = true;
-        bgMusic.preload = 'auto'; // Force the browser to start loading it early
+        let audioStarted = false;
 
         // Game Constants
         const TABLE_HEIGHT = 520; 
@@ -44,16 +40,15 @@
         let frameCount = 0;
 
         function handleInput() {
+            // Fix for Music: Browser needs interaction to play
+            if (!audioStarted) {
+                bgMusic.play().catch(e => console.log("Audio waiting..."));
+                audioStarted = true;
+            }
+
             if (gameState === 'START') {
                 gameState = 'PLAYING';
                 velocity = -12;
-                
-                // AUDIO FIX: Resume/Play music on the very first click
-                if (bgMusic.paused) {
-                    bgMusic.play().catch(error => {
-                        console.log("Audio failed to play:", error);
-                    });
-                }
             } else if (gameState === 'PLAYING') {
                 velocity = -6;
             } else if (gameState === 'GAMEOVER') {
@@ -104,25 +99,28 @@
                     butters.push({ x: canvas.width, y: 50 + Math.random() * 350, w: 60, h: 50 });
                 }
 
-                // Shrunk Hitboxes Logic
+                // --- PRECISION TOAST HITBOX ---
+                // We define the center 20 pixels of the toast as the "danger zone"
                 const tHB = {
-                    x: 175 + HITBOX_PADDING,
-                    y: toastY + HITBOX_PADDING,
-                    w: 50 - (HITBOX_PADDING * 2),
-                    h: 50 - (HITBOX_PADDING * 2)
+                    x: 175 + 15, // Move inward 15px from left
+                    y: toastY + 15, // Move inward 15px from top
+                    w: 20, // Only 20px wide
+                    h: 20  // Only 20px tall
                 };
 
                 butters.forEach((b, i) => {
                     b.x -= butterSpeed;
                     ctx.drawImage(imgButter, b.x, b.y, b.w, b.h);
                     
+                    // --- PRECISION BUTTER HITBOX ---
                     const bHB = {
-                        x: b.x + HITBOX_PADDING,
-                        y: b.y + HITBOX_PADDING,
-                        w: b.w - (HITBOX_PADDING * 2),
-                        h: b.h - (HITBOX_PADDING * 2)
+                        x: b.x + 20, // Butter often has "air" on the sides, so we shrink more
+                        y: b.y + 15,
+                        w: 20,
+                        h: 20
                     };
 
+                    // Collision Detection
                     if (tHB.x < bHB.x + bHB.w &&
                         tHB.x + tHB.w > bHB.x &&
                         tHB.y < bHB.y + bHB.h &&
@@ -170,7 +168,6 @@
 
             requestAnimationFrame(draw);
         }
-
         draw();
     </script>
 </body>
