@@ -3,110 +3,151 @@
 <head>
     <title>Soggy Toast Escape</title>
     <style>
-        body { text-align: center; background: #f0e68c; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
-        canvas { background: #fff; border: 5px solid #634721; margin-top: 20px; cursor: pointer; }
+        body { text-align: center; background: #f0e68c; font-family: 'Courier New', sans-serif; overflow: hidden; }
+        canvas { background: #fff; border: 5px solid #634721; margin-top: 20px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
     <h1>🍞 SOGGY TOAST ESCAPE 🍞</h1>
-    <p>Dodge the flying butter! Tap to Jump.</p>
     <canvas id="gameCanvas" width="400" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        let toastY = 300;
+        // Game States: 'START', 'PLAYING', 'GAMEOVER'
+        let gameState = 'START';
+        let toastY = 510;
         let velocity = 0;
-        let gravity = 0.4;
-        let lift = -8;
+        let gravity = 0.2; 
+        let rotation = 0;
         let score = 0;
-        let isGameOver = false;
-
-        // --- NEW: Butter Obstacles ---
-        let butters = []; 
+        let butters = [];
         let frameCount = 0;
 
-        function spawnButter() {
-            // Random height for the butter obstacle
-            let randomY = Math.random() * (canvas.height - 100);
-            butters.push({ x: canvas.width, y: randomY, width: 50, height: 30 });
+        // --- DRAWING FUNCTIONS ---
+
+        function drawToaster() {
+            ctx.fillStyle = "#999"; // Silver toaster
+            ctx.fillRect(150, 500, 100, 60);
+            ctx.fillStyle = "#666";
+            ctx.fillRect(160, 495, 80, 10); // Toaster slot
         }
 
-        function jump() {
-            if (isGameOver) resetGame();
-            else velocity = lift;
+        function drawBread(x, y, angle) {
+            ctx.save();
+            ctx.translate(x + 20, y + 20);
+            ctx.rotate(angle);
+            
+            // Crust
+            ctx.fillStyle = "#8B4513";
+            ctx.beginPath();
+            ctx.roundRect(-22, -22, 44, 44, 8); // Rounded crust
+            ctx.fill();
+
+            // Bread Face
+            ctx.fillStyle = "#F5DEB3";
+            ctx.beginPath();
+            ctx.roundRect(-18, -18, 36, 36, 5);
+            ctx.fill();
+
+            // Tiny Eyes
+            ctx.fillStyle = "black";
+            ctx.fillRect(-10, -5, 4, 4);
+            ctx.fillRect(6, -5, 4, 4);
+            ctx.restore();
+        }
+
+        // --- GAME LOGIC ---
+
+        function handleInput() {
+            if (gameState === 'START') {
+                gameState = 'PLAYING';
+                velocity = -12; // Eject from toaster!
+            } else if (gameState === 'PLAYING') {
+                velocity = -6;
+            } else if (gameState === 'GAMEOVER') {
+                resetGame();
+            }
         }
 
         function resetGame() {
-            toastY = 300;
+            toastY = 510;
             velocity = 0;
             score = 0;
+            gravity = 0.2;
             butters = [];
-            frameCount = 0;
-            isGameOver = false;
-            draw();
+            gameState = 'START';
         }
 
-        window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
-        canvas.addEventListener('mousedown', jump);
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
+        canvas.addEventListener('mousedown', handleInput);
 
         function draw() {
-            if (isGameOver) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            frameCount++;
 
-            // Physics
-            velocity += gravity;
-            toastY += velocity;
-
-            // --- NEW: Handle Butter Logic ---
-            if (frameCount % 100 === 0) spawnButter(); // Spawn butter every 100 frames
-
-            for (let i = butters.length - 1; i >= 0; i--) {
-                butters[i].x -= 3; // Move butter to the left
-
-                // Draw Butter
-                ctx.fillStyle = "#FFD700"; // Butter Yellow
-                ctx.fillRect(butters[i].x, butters[i].y, butters[i].width, butters[i].height);
-
-                // --- NEW: Collision Detection ---
-                // If toast overlaps with butter box
-                if (180 < butters[i].x + butters[i].width &&
-                    180 + 40 > butters[i].x &&
-                    toastY < butters[i].y + butters[i].height &&
-                    toastY + 40 > butters[i].y) {
-                    endGame();
-                }
-
-                // Remove butter if it goes off screen to save memory
-                if (butters[i].x < -50) butters.splice(i, 1);
-            }
-
-            // Draw Water & Toast
+            // Draw Water
             ctx.fillStyle = "#00bfff";
             ctx.fillRect(0, 550, canvas.width, 50);
-            ctx.fillStyle = "#d2b48c";
-            ctx.fillRect(180, toastY, 40, 40);
 
-            if (toastY > 510 || toastY < 0) endGame();
+            if (gameState === 'START') {
+                drawToaster();
+                drawBread(180, 480, 0);
+                ctx.fillStyle = "black";
+                ctx.font = "20px Courier New";
+                ctx.fillText("TAP TO EJECT TOAST!", 90, 300);
+            } 
+            
+            else if (gameState === 'PLAYING') {
+                frameCount++;
+                
+                // Increase gravity over time to make it harder
+                gravity += 0.0001; 
+                velocity += gravity;
+                toastY += velocity;
+                rotation += velocity * 0.05; // Spin based on speed
 
-            score++;
-            ctx.fillStyle = "black";
-            ctx.font = "20px Arial";
-            ctx.fillText(`Score: ${Math.floor(score/10)}`, 10, 30);
+                // Risk Bonus: Get more points if close to water
+                let multiplier = (toastY > 450) ? 5 : 1;
+                score += (1 * multiplier);
+
+                // Butter Spawning
+                if (frameCount % 80 === 0) {
+                    butters.push({ x: canvas.width, y: Math.random() * 400, w: 40, h: 25 });
+                }
+
+                butters.forEach((b, index) => {
+                    b.x -= 4;
+                    ctx.fillStyle = "#FFD700";
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+
+                    // Collision
+                    if (180 < b.x + b.w && 180 + 40 > b.x && toastY < b.y + b.h && toastY + 40 > b.y) {
+                        gameState = 'GAMEOVER';
+                    }
+                });
+
+                drawBread(180, toastY, rotation);
+
+                if (toastY > 515 || toastY < -50) gameState = 'GAMEOVER';
+
+                // Display Score
+                ctx.fillStyle = "black";
+                ctx.font = "20px Courier New";
+                ctx.fillText(`Score: ${Math.floor(score/10)}`, 15, 30);
+                if(multiplier > 1) ctx.fillText("RISK BONUS! x5", 15, 60);
+            } 
+            
+            else if (gameState === 'GAMEOVER') {
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+                ctx.fillStyle = "white";
+                ctx.fillText("SOGGY TOAST!", 130, 280);
+                ctx.fillText(`Final Score: ${Math.floor(score/10)}`, 110, 320);
+                ctx.fillText("Tap to Restart", 125, 360);
+            }
 
             requestAnimationFrame(draw);
-        }
-
-        function endGame() {
-            isGameOver = true;
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillRect(0,0, canvas.width, canvas.height);
-            ctx.fillStyle = "white";
-            ctx.fillText("BUTTERED! Game Over.", 90, 300);
-            ctx.fillText("Click to try again", 120, 340);
         }
 
         draw();
