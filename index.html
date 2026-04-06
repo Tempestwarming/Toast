@@ -3,20 +3,19 @@
 <head>
     <title>Soggy Toast Escape</title>
     <style>
-        body { text-align: center; background: #f0e68c; font-family: 'Courier New', Courier, monospace; }
+        body { text-align: center; background: #f0e68c; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
         canvas { background: #fff; border: 5px solid #634721; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
     <h1>🍞 SOGGY TOAST ESCAPE 🍞</h1>
-    <p>Tap or Press Space to Jump!</p>
+    <p>Dodge the flying butter! Tap to Jump.</p>
     <canvas id="gameCanvas" width="400" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Game Variables
         let toastY = 300;
         let velocity = 0;
         let gravity = 0.4;
@@ -24,53 +23,75 @@
         let score = 0;
         let isGameOver = false;
 
-        // The "Jump" Function
+        // --- NEW: Butter Obstacles ---
+        let butters = []; 
+        let frameCount = 0;
+
+        function spawnButter() {
+            // Random height for the butter obstacle
+            let randomY = Math.random() * (canvas.height - 100);
+            butters.push({ x: canvas.width, y: randomY, width: 50, height: 30 });
+        }
+
         function jump() {
-            if (isGameOver) {
-                resetGame();
-            } else {
-                velocity = lift; // Give the toast upward momentum
-            }
+            if (isGameOver) resetGame();
+            else velocity = lift;
         }
 
         function resetGame() {
             toastY = 300;
             velocity = 0;
             score = 0;
+            butters = [];
+            frameCount = 0;
             isGameOver = false;
             draw();
         }
 
-        // Listen for clicks or spacebar
         window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
         canvas.addEventListener('mousedown', jump);
 
         function draw() {
             if (isGameOver) return;
 
-            // 1. Clear the canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            frameCount++;
 
-            // 2. Physics: Apply gravity to velocity, and velocity to position
+            // Physics
             velocity += gravity;
             toastY += velocity;
 
-            // 3. Draw the "Water" (Danger Zone)
-            ctx.fillStyle = "#00bfff";
-            ctx.fillRect(0, 550, canvas.width, 50);
+            // --- NEW: Handle Butter Logic ---
+            if (frameCount % 100 === 0) spawnButter(); // Spawn butter every 100 frames
 
-            // 4. Draw the Toast
-            ctx.fillStyle = "#d2b48c"; // Crust color
-            ctx.fillRect(180, toastY, 40, 40); 
-            ctx.fillStyle = "#f5deb3"; // Inner bread color
-            ctx.fillRect(185, toastY + 5, 30, 30);
+            for (let i = butters.length - 1; i >= 0; i--) {
+                butters[i].x -= 3; // Move butter to the left
 
-            // 5. Check for Collision (Floor or Ceiling)
-            if (toastY > 510 || toastY < 0) {
-                endGame();
+                // Draw Butter
+                ctx.fillStyle = "#FFD700"; // Butter Yellow
+                ctx.fillRect(butters[i].x, butters[i].y, butters[i].width, butters[i].height);
+
+                // --- NEW: Collision Detection ---
+                // If toast overlaps with butter box
+                if (180 < butters[i].x + butters[i].width &&
+                    180 + 40 > butters[i].x &&
+                    toastY < butters[i].y + butters[i].height &&
+                    toastY + 40 > butters[i].y) {
+                    endGame();
+                }
+
+                // Remove butter if it goes off screen to save memory
+                if (butters[i].x < -50) butters.splice(i, 1);
             }
 
-            // 6. Score Tracking
+            // Draw Water & Toast
+            ctx.fillStyle = "#00bfff";
+            ctx.fillRect(0, 550, canvas.width, 50);
+            ctx.fillStyle = "#d2b48c";
+            ctx.fillRect(180, toastY, 40, 40);
+
+            if (toastY > 510 || toastY < 0) endGame();
+
             score++;
             ctx.fillStyle = "black";
             ctx.font = "20px Arial";
@@ -84,11 +105,11 @@
             ctx.fillStyle = "rgba(0,0,0,0.5)";
             ctx.fillRect(0,0, canvas.width, canvas.height);
             ctx.fillStyle = "white";
-            ctx.fillText("SOGGY TOAST! Game Over.", 80, 300);
+            ctx.fillText("BUTTERED! Game Over.", 90, 300);
             ctx.fillText("Click to try again", 120, 340);
         }
 
-        draw(); // Start the loop
+        draw();
     </script>
 </body>
 </html>
