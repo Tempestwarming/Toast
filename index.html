@@ -14,18 +14,20 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // --- COLLISION TUNING ---
-        const HITBOX_PADDING = 12; // Shrunk for more accurate "touching" detection
+        // --- 1. SMALLER HITBOX ---
+        // Increased from 12 to 18 for even more forgiving collisions
+        const HITBOX_PADDING = 18; 
 
-        // --- IMAGE ASSETS ---
+        // --- ASSETS ---
         const imgToast = new Image(); imgToast.src = 'toast.png';
         const imgToaster = new Image(); imgToaster.src = 'toaster.png';
         const imgButter = new Image(); imgButter.src = 'butter.png';
         const imgBg = new Image(); imgBg.src = 'background.png';
 
-        // --- AUDIO ASSET ---
+        // --- 2. AUDIO FIX ---
         const bgMusic = new Audio('toastmusic.mp3');
-        bgMusic.loop = true; // Keep the music playing on a loop
+        bgMusic.loop = true;
+        bgMusic.preload = 'auto'; // Force the browser to start loading it early
 
         // Game Constants
         const TABLE_HEIGHT = 520; 
@@ -45,8 +47,13 @@
             if (gameState === 'START') {
                 gameState = 'PLAYING';
                 velocity = -12;
-                // Start music on first interaction (browser requirement)
-                bgMusic.play().catch(e => console.log("Music waiting for user click..."));
+                
+                // AUDIO FIX: Resume/Play music on the very first click
+                if (bgMusic.paused) {
+                    bgMusic.play().catch(error => {
+                        console.log("Audio failed to play:", error);
+                    });
+                }
             } else if (gameState === 'PLAYING') {
                 velocity = -6;
             } else if (gameState === 'GAMEOVER') {
@@ -57,7 +64,6 @@
         function resetGame() {
             toastY = 460; velocity = 0; score = 0; butterSpeed = 4;
             butters = []; gameState = 'START'; frameCount = 0;
-            // Note: Music keeps playing or restarts
         }
 
         window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInput(); });
@@ -65,12 +71,9 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 1. Draw the Kitchen Background
             ctx.drawImage(imgBg, 0, 0, canvas.width, canvas.height);
 
             if (gameState === 'START') {
-                // 2. Draw Toaster & Toast resting on table
                 ctx.drawImage(imgToaster, 130, 430, 140, 100);
                 ctx.drawImage(imgToast, 175, 420, 50, 50);
                 
@@ -94,16 +97,14 @@
                 toastY += velocity;
                 rotation += velocity * 0.1;
 
-                // Points based on proximity to floor (Risk)
                 let multiplier = (toastY > 450) ? 10 : 1;
                 score += (1 * multiplier);
 
-                // Butter Logic
                 if (frameCount % 75 === 0) {
                     butters.push({ x: canvas.width, y: 50 + Math.random() * 350, w: 60, h: 50 });
                 }
 
-                // Shrunk Toast Hitbox
+                // Shrunk Hitboxes Logic
                 const tHB = {
                     x: 175 + HITBOX_PADDING,
                     y: toastY + HITBOX_PADDING,
@@ -115,7 +116,6 @@
                     b.x -= butterSpeed;
                     ctx.drawImage(imgButter, b.x, b.y, b.w, b.h);
                     
-                    // Shrunk Butter Hitbox
                     const bHB = {
                         x: b.x + HITBOX_PADDING,
                         y: b.y + HITBOX_PADDING,
@@ -123,7 +123,6 @@
                         h: b.h - (HITBOX_PADDING * 2)
                     };
 
-                    // Collision Check using narrowed hitboxes
                     if (tHB.x < bHB.x + bHB.w &&
                         tHB.x + tHB.w > bHB.x &&
                         tHB.y < bHB.y + bHB.h &&
@@ -132,17 +131,14 @@
                     }
                 });
 
-                // Draw Spinning Toast
                 ctx.save();
                 ctx.translate(200, toastY + 25);
                 ctx.rotate(rotation);
                 ctx.drawImage(imgToast, -25, -25, 50, 50);
                 ctx.restore();
 
-                // Table Collision
                 if (toastY > TABLE_HEIGHT - 40 || toastY < -100) gameState = 'GAMEOVER';
 
-                // UI Score
                 ctx.fillStyle = "white";
                 ctx.strokeStyle = "#4a3728";
                 ctx.lineWidth = 4;
@@ -168,7 +164,7 @@
                 ctx.fillText(`SCORE: ${Math.floor(score/10)}`, 140, 290);
                 ctx.fillText(`BEST: ${highScore}`, 145, 330);
                 ctx.font = "14px Arial";
-                ctx.fillText("Screenshot your high score!", 115, 380);
+                ctx.fillText("Screenshot your score!", 120, 380);
                 ctx.fillText("Click to try again", 140, 410);
             }
 
