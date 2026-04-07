@@ -17,6 +17,7 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // Assets
         const imgToast = new Image(); imgToast.src = 'toast.png';
         const imgToaster = new Image(); imgToaster.src = 'toaster.png';
         const imgButter = new Image(); imgButter.src = 'butter.png';
@@ -26,11 +27,16 @@
         bgMusic.loop = true;
         let audioStarted = false;
 
+        // Game State
         const TABLE_HEIGHT = 520; 
         let gameState = 'START';
         let toastY = 460, velocity = 0, gravity = 0.25, rotation = 0;
         let score = 0, highScore = localStorage.getItem('highScore') || 0;
-        let butters = [], crumbs = [], frameCount = 0, butterSpeed = 4;
+        let butters = [], crumbs = [], frameCount = 0;
+        
+        // Difficulty Variables
+        let currentButterSpeed = 4;
+        let spawnRate = 70; 
 
         function handleInput(e) {
             if (e && e.cancelable) e.preventDefault(); 
@@ -41,7 +47,7 @@
                 velocity = -11;
             } else if (gameState === 'PLAYING') {
                 velocity = -5.5;
-                // Create jump crumbs
+                // Juice: Particle crumbs on jump
                 for(let i=0; i<5; i++) {
                     crumbs.push({x: 200, y: toastY+25, vx: Math.random()*4-2, vy: Math.random()*2, life: 1});
                 }
@@ -51,7 +57,8 @@
         }
 
         function resetGame() {
-            toastY = 460; velocity = 0; score = 0; butterSpeed = 4;
+            toastY = 460; velocity = 0; gravity = 0.25; rotation = 0;
+            score = 0; currentButterSpeed = 4; spawnRate = 70;
             butters = []; crumbs = []; gameState = 'START'; frameCount = 0;
         }
 
@@ -63,7 +70,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(imgBg, 0, 0, canvas.width, canvas.height);
 
-            // Draw Crumbs
+            // Crumbs Logic
             crumbs.forEach((c, i) => {
                 c.x += c.vx; c.y += c.vy; c.life -= 0.02;
                 ctx.fillStyle = `rgba(139, 69, 19, ${c.life})`;
@@ -80,30 +87,49 @@
                 ctx.font = "22px Arial Black";
                 ctx.fillText("DON'T DROP THE DOUGH!", 50, 150);
                 ctx.font = "14px Arial Black";
-                ctx.fillText("Avoid the butter & boundaries!", 75, 200);
-                ctx.fillText("Tap to Eject!", 150, 270);
+                ctx.fillText("Difficulty increases as you score!", 70, 190);
+                ctx.fillText("Watch out for Wavy Butter!", 95, 215);
+                ctx.font = "20px Arial Black";
+                ctx.fillText("TAP TO EJECT", 125, 275);
             } 
             
             else if (gameState === 'PLAYING') {
                 frameCount++;
-                if (frameCount % 450 === 0) butterSpeed += 0.5;
+                let displayScore = Math.floor(score/10);
+
+                // --- PROGRESSIVE DIFFICULTY ENGINE ---
+                // 1. Increase speed over time
+                currentButterSpeed = 4 + (displayScore * 0.05);
+                // 2. Increase gravity (makes toast "heavier")
+                gravity = 0.25 + (displayScore * 0.001);
+                // 3. Spawns get closer together
+                spawnRate = Math.max(35, 70 - (displayScore * 0.5));
 
                 velocity += gravity;
                 toastY += velocity;
                 rotation += velocity * 0.1;
                 score += (toastY > 450) ? 10 : 1;
 
-                if (frameCount % 60 === 0) {
-                    let y = (Math.random() < 0.35) ? toastY - 10 : 30 + Math.random() * 420;
-                    butters.push({ x: canvas.width, y: y, seed: Math.random() * 10 });
+                // Butter Spawning
+                if (frameCount % Math.floor(spawnRate) === 0) {
+                    // Higher scores increase chance of "Sniper Butter"
+                    let sniperChance = 0.2 + (displayScore * 0.01);
+                    let y = (Math.random() < sniperChance) ? toastY - 10 : 30 + Math.random() * 420;
+                    butters.push({ x: canvas.width, y: y, seed: Math.random() * 10, startY: y });
                 }
 
                 const tHB = { x: 175 + 15, y: toastY + 15, w: 20, h: 20 };
 
                 butters.forEach((b, i) => {
-                    b.x -= butterSpeed;
-                    // Wavy movement for higher scores
-                    let wave = (score > 500) ? Math.sin(b.x * 0.05 + b.seed) * 2 : 0;
+                    b.x -= currentButterSpeed;
+                    
+                    // 4. Wavy Butter Pattern (Starts appearing at score 30)
+                    let wave = 0;
+                    if (displayScore > 30) {
+                        let intensity = Math.min(40, (displayScore - 30) * 1.5);
+                        wave = Math.sin(b.x * 0.05 + b.seed) * intensity;
+                    }
+                    
                     ctx.drawImage(imgButter, b.x, b.y + wave, 60, 50);
                     
                     const bHB = { x: b.x + 22, y: b.y + 18 + wave, w: 16, h: 14 };
@@ -111,17 +137,20 @@
                     if (b.x < -60) butters.splice(i, 1);
                 });
 
+                // Draw Toast
                 ctx.save();
                 ctx.translate(200, toastY + 25);
                 ctx.rotate(rotation);
                 ctx.drawImage(imgToast, -25, -25, 50, 50);
                 ctx.restore();
 
-                if (toastY > TABLE_HEIGHT - 40 || toastY < -10) gameState = 'GAMEOVER';
+                // Boundaries
+                if (toastY > TABLE_HEIGHT - 40 || toastY < -15) gameState = 'GAMEOVER';
 
+                // HUD
                 ctx.fillStyle = "white"; ctx.strokeStyle = "#4a3728"; ctx.lineWidth = 4; ctx.font = "24px Arial Black";
-                ctx.strokeText(`Score: ${Math.floor(score/10)}`, 20, 50);
-                ctx.fillText(`Score: ${Math.floor(score/10)}`, 20, 50);
+                ctx.strokeText(`Score: ${displayScore}`, 20, 50);
+                ctx.fillText(`Score: ${displayScore}`, 20, 50);
             } 
             
             else if (gameState === 'GAMEOVER') {
@@ -137,7 +166,7 @@
                 ctx.font = "22px Arial Black";
                 ctx.fillText(`SCORE: ${Math.floor(score/10)}`, 140, 290);
                 ctx.fillText(`BEST: ${highScore}`, 145, 330);
-                ctx.font = "14px Arial"; ctx.fillText("Tap to try again", 145, 410);
+                ctx.font = "14px Arial"; ctx.fillText("Tap to Restart", 145, 410);
             }
             requestAnimationFrame(draw);
         }
